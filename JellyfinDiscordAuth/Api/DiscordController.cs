@@ -57,6 +57,48 @@ namespace JellyfinDiscordAuth.Api
             _serverConfigurationManager = serverConfigurationManager;
         }
 
+        [HttpGet("ConfigurationData")]
+        [Produces(MediaTypeNames.Application.Json)]
+        public IActionResult GetConfigurationData()
+        {
+            var libraries = _libraryManager.GetVirtualFolders()
+                .Select(v => new
+                {
+                    v.ItemId,
+                    v.Name
+                })
+                .OrderBy(v => v.Name)
+                .ToArray();
+
+            var roles = Array.Empty<object>();
+            var config = DiscordAuthPlugin.Instance.Configuration;
+
+            if (!string.IsNullOrWhiteSpace(config.ServerId)
+                && ulong.TryParse(config.ServerId, out ulong serverId)
+                && DiscordAuthPlugin.Client != null)
+            {
+                var guild = DiscordAuthPlugin.Client.GetGuild(serverId);
+                if (guild != null)
+                {
+                    roles = guild.Roles
+                        .Where(r => !r.IsEveryone)
+                        .OrderByDescending(r => r.Position)
+                        .Select(r => (object)new
+                        {
+                            Id = r.Id.ToString(),
+                            r.Name
+                        })
+                        .ToArray();
+                }
+            }
+
+            return Ok(new
+            {
+                Libraries = libraries,
+                Roles = roles
+            });
+        }
+
         // Generate the Discord OAuth2 authorize URL and redirect the user to Discord.
         [HttpGet("Login")]
         public IActionResult Login()
@@ -179,7 +221,7 @@ namespace JellyfinDiscordAuth.Api
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, "Error updateing user {Username}", username);
+                            _logger.LogError(ex, "Error updating user {Username}", username);
                             return Problem("Something went wrong");
                         }
                     }

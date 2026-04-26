@@ -1,6 +1,13 @@
 Write-Host "Starting release build process..."
 
-$zipPath = "JellyfinDiscordAuth.zip"
+$meta = Get-Content "meta.json" -Raw | ConvertFrom-Json
+$version = $meta.version
+$releaseDir = "Release\$version"
+if (-not (Test-Path $releaseDir)) {
+    New-Item -ItemType Directory -Path $releaseDir | Out-Null
+}
+
+$zipPath = "$releaseDir\JellyfinDiscordAuth.zip"
 $filesToZip = @(
     "bin\Debug\net9.0\JellyfinDiscordAuth.dll", 
     "bin\Debug\net9.0\Discord.Net.Webhook.dll", 
@@ -33,7 +40,27 @@ else {
 }
 
 
-# (Your manifest definition here)
+# Load existing manifest versions to preserve history
+$manifestPath = "manifest.json"
+$existingVersions = @()
+if (Test-Path $manifestPath) {
+    $existingManifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+    if ($existingManifest -and $existingManifest[0].versions) {
+        $existingVersions = $existingManifest[0].versions
+    }
+}
+
+$newVersion = @{
+    changelog = $meta.changelog
+    checksum  = (Get-FileHash $zipPath -Algorithm MD5).Hash
+    sourceUrl = "http://192.168.1.10:56080/jellyfin/discord/Release/$version/JellyfinDiscordAuth.zip"
+    targetAbi = "10.11.0.0"
+    timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+    version   = $version
+}
+
+$allVersions = @($newVersion) + $existingVersions
+
 $manifest = @(
     @{
         category    = "Authentication"
@@ -42,19 +69,10 @@ $manifest = @(
         name        = "Discord Authentication"
         overview    = "Users can login with Discord"
         owner       = "EvanTrow"
-        versions    = @(
-            @{
-                changelog = "1.0.0.0: Initial Release....`n"
-                checksum  = (Get-FileHash $zipPath -Algorithm MD5).Hash
-                sourceUrl = "http://192.168.1.10:56080/jellyfin/discord/JellyfinDiscordAuth.zip"
-                targetAbi = "10.11.0.0"
-                timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-                version   = "1.0.0.0"
-            }
-        )
+        versions    = $allVersions
     }
 )
 
-ConvertTo-Json -InputObject @($manifest) -Depth 6 | Set-Content -Encoding UTF8 "manifest.json"
+ConvertTo-Json -InputObject @($manifest) -Depth 6 | Set-Content -Encoding UTF8 $manifestPath
 
 Write-Host "Release file $zipPath and manifest.json generated."

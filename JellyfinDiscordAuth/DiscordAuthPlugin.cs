@@ -135,13 +135,17 @@ namespace JellyfinDiscordAuth
             {
                 _logger.LogInformation($"{user.Username} ({user.Id}) joined the server. Adding default roles.");
 
-                string[] defaultRoles = Configuration.DefaultRoles.Split(',')
-                    .Select(r => r.Trim()) // remove leading/trailing whitespace
-                    .Where(r => r.Length > 0).ToArray(); // remove empty strings
-                foreach (string role in defaultRoles)
+                var defaultRoleIds = Configuration.LibraryRoleMappings
+                    .Where(m => m.UseDefaultAssign && !string.IsNullOrWhiteSpace(m.RoleId))
+                    .Select(m => m.RoleId.Trim())
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray();
+
+                foreach (string role in defaultRoleIds)
                 {
                     try
                     {
+                        _logger.LogInformation($"Assigning default role {role} to {user.Username} ({user.Id}).");
                         ulong roleId = ulong.Parse(role);
                         if (Client.GetGuild(ulong.Parse(Configuration.ServerId)).Roles.Any(r => r.Id == roleId))
                         {
@@ -228,11 +232,19 @@ namespace JellyfinDiscordAuth
                     }
                     else
                     {
-                        bool isAdmin = discordUserRoles.Any(r => r.Name == "Admin");
-                        user.SetPermission(PermissionKind.IsAdministrator, isAdmin);
-                        user.SetPermission(PermissionKind.EnableContentDeletion, isAdmin);
-                        user.SetPermission(PermissionKind.EnableAllFolders, isAdmin);
-                        user.SetPreference(PreferenceKind.EnabledFolders, isAdmin ? [] : GetLibraryAccess(discordUserRoles));
+                        var adminRoleId = (Configuration.AdminRoleId ?? string.Empty).Trim();
+                        if (!string.IsNullOrWhiteSpace(adminRoleId))
+                        {
+                            bool isAdmin = discordUserRoles.Any(r => string.Equals(r.Id.ToString(), adminRoleId, StringComparison.Ordinal));
+                            user.SetPermission(PermissionKind.IsAdministrator, isAdmin);
+                            user.SetPermission(PermissionKind.EnableContentDeletion, isAdmin);
+                            user.SetPermission(PermissionKind.EnableAllFolders, isAdmin);
+                            user.SetPreference(PreferenceKind.EnabledFolders, isAdmin ? [] : GetLibraryAccess(discordUserRoles));
+                        }
+                        else
+                        {
+                            user.SetPreference(PreferenceKind.EnabledFolders, GetLibraryAccess(discordUserRoles));
+                        }
                         user.SetPermission(PermissionKind.IsDisabled, false);
                     }
                     await _userManager.UpdateUserAsync(user).ConfigureAwait(false);
@@ -247,7 +259,28 @@ namespace JellyfinDiscordAuth
         public string[] GetLibraryAccess(IEnumerable<SocketRole> discordUserRoles)
         {
             var libraries = _libraryManager.GetVirtualFolders();
+            var mappings = Configuration.LibraryRoleMappings;
             List<string> libraryAccess = new List<string>();
+
+            if (mappings != null && mappings.Count > 0)
+            {
+                var roleIds = discordUserRoles.Select(r => r.Id.ToString()).ToHashSet(StringComparer.Ordinal);
+                foreach (var mapping in mappings)
+                {
+                    if (string.IsNullOrWhiteSpace(mapping.LibraryId) || string.IsNullOrWhiteSpace(mapping.RoleId))
+                    {
+                        continue;
+                    }
+
+                    if (roleIds.Contains(mapping.RoleId) && libraries.Any(l => l.ItemId == mapping.LibraryId))
+                    {
+                        libraryAccess.Add(mapping.LibraryId);
+                    }
+                }
+
+                return libraryAccess.Distinct(StringComparer.Ordinal).ToArray();
+            }
+
             foreach (var library in libraries)
             {
                 if (discordUserRoles.Any(r => r.Name == library.Name))

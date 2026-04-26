@@ -1,77 +1,187 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-    <head>
-        <meta charset="utf-8" />
-        <title>Template</title>
-    </head>
-    <body>
-        <div id="TemplateConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox">
-            <div data-role="content">
-                <div class="content-primary">
-                    <form id="TemplateConfigForm">
-                        <div class="inputContainer">
-                            <label class="inputLabel inputLabelUnfocused" for="ClientId">Client ID</label>
-                            <input id="ClientId" name="ClientId" type="text" is="emby-input" />
-                        </div>
-                        <div class="inputContainer">
-                            <label class="inputLabel inputLabelUnfocused" for="ClientSecret">Client Secret</label>
-                            <input id="ClientSecret" name="ClientSecret" type="password" is="emby-input" />
-                        </div>
-                        <div class="inputContainer">
-                            <label class="inputLabel inputLabelUnfocused" for="ServerId">Server ID</label>
-                            <input id="ServerId" name="ServerId" type="text" is="emby-input" />
-                        </div>
-                        <div class="inputContainer">
-                            <label class="inputLabel inputLabelUnfocused" for="DefaultRoles">Default Role IDs</label>
-                            <input id="DefaultRoles" name="DefaultRoles" type="text" is="emby-input" />
-                            <div class="fieldDescription">Default Discord roles to assign new users (Comma separated list)</div>
-                        </div>
-                        <div class="inputContainer">
-                            <label class="inputLabel inputLabelUnfocused" for="BotToken">Bot Token</label>
-                            <input id="BotToken" name="BotToken" type="password" is="emby-input" />
-                        </div>
-                        <div>
-                            <button is="emby-button" type="submit" class="raised button-submit block emby-button">
-                                <span>Save</span>
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-            <script type="text/javascript">
-                var TemplateConfig = {
-                    pluginUniqueId: "359a7d2a-1c54-4e70-abbb-01bc73f098cf",
-                };
+	<head>
+		<meta charset="utf-8" />
+		<title>Discord Auth</title>
+	</head>
+	<body>
+		<div id="TemplateConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox">
+			<div data-role="content">
+				<div class="content-primary">
+					<h1>Discord Auth</h1>
 
-                document.querySelector("#TemplateConfigPage").addEventListener("pageshow", function () {
-                    Dashboard.showLoadingMsg();
-                    ApiClient.getPluginConfiguration(TemplateConfig.pluginUniqueId).then(function (config) {
-                        document.querySelector("#ClientId").value = config.ClientId;
-                        document.querySelector("#ClientSecret").value = config.ClientSecret;
-                        document.querySelector("#BotToken").value = config.BotToken;
-                        document.querySelector("#ServerId").value = config.ServerId;
-                        document.querySelector("#DefaultRoles").value = config.DefaultRoles;
-                        Dashboard.hideLoadingMsg();
-                    });
-                });
+					<h2 class="sectionTitle">Bot Configuration</h2>
 
-                document.querySelector("#TemplateConfigForm").addEventListener("submit", function (e) {
-                    Dashboard.showLoadingMsg();
-                    ApiClient.getPluginConfiguration(TemplateConfig.pluginUniqueId).then(function (config) {
-                        config.ClientId = document.querySelector("#ClientId").value;
-                        config.ClientSecret = document.querySelector("#ClientSecret").value;
-                        config.BotToken = document.querySelector("#BotToken").value;
-                        config.ServerId = document.querySelector("#ServerId").value;
-                        config.DefaultRoles = document.querySelector("#DefaultRoles").value;
-                        ApiClient.updatePluginConfiguration(TemplateConfig.pluginUniqueId, config).then(function (result) {
-                            Dashboard.processPluginConfigurationUpdateResult(result);
-                        });
-                    });
+					<form id="TemplateConfigForm">
+						<div class="inputContainer">
+							<label class="inputLabel inputLabelUnfocused" for="ClientId">Client ID</label>
+							<input id="ClientId" name="ClientId" type="text" is="emby-input" />
+						</div>
+						<div class="inputContainer">
+							<label class="inputLabel inputLabelUnfocused" for="ClientSecret">Client Secret</label>
+							<input id="ClientSecret" name="ClientSecret" type="password" is="emby-input" />
+						</div>
+						<div class="inputContainer">
+							<label class="inputLabel inputLabelUnfocused" for="ServerId">Server ID</label>
+							<input id="ServerId" name="ServerId" type="text" is="emby-input" />
+						</div>
+						<div class="inputContainer">
+							<label class="inputLabel inputLabelUnfocused" for="BotToken">Bot Token</label>
+							<input id="BotToken" name="BotToken" type="password" is="emby-input" />
+						</div>
+						<div class="inputContainer">
+							<h2 class="sectionTitle">Role Mapping</h2>
 
-                    e.preventDefault();
-                    return false;
-                });
-            </script>
-        </div>
-    </body>
+							<div class="inputContainer">
+								<label class="inputLabel" for="AdminRoleId">Admin Role</label>
+								<select id="AdminRoleId" name="AdminRoleId" is="emby-select"></select>
+								<div class="fieldDescription">Users with this Discord role are treated as Jellyfin admins.</div>
+							</div>
+
+							<h3 class="sectionTitle">Library Mapping</h3>
+
+							<div class="fieldDescription" style="margin-bottom: 8px">
+								Select the Discord role that grants each library. Enable default assign to grant that role when new users join the Discord server.
+							</div>
+							<div id="LibraryRoleMappings"></div>
+						</div>
+						<div>
+							<button is="emby-button" type="submit" class="raised button-submit block emby-button">
+								<span>Save</span>
+							</button>
+						</div>
+					</form>
+				</div>
+			</div>
+			<script type="text/javascript">
+				var TemplateConfig = {
+					pluginUniqueId: '359a7d2a-1c54-4e70-abbb-01bc73f098cf',
+				};
+
+				var libraryRoleViewModel = {
+					libraries: [],
+					roles: [],
+					mappings: {},
+				};
+
+				function escapeHtml(value) {
+					return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#39;');
+				}
+
+				function renderLibraryRoleMappings() {
+					var container = document.querySelector('#LibraryRoleMappings');
+					if (!libraryRoleViewModel.libraries.length) {
+						container.innerHTML = "<div class='fieldDescription'>No libraries found.</div>";
+						return;
+					}
+
+					var roleOptions = ["<option value=''>No role selected</option>"];
+					libraryRoleViewModel.roles.forEach(function (role) {
+						roleOptions.push("<option value='" + escapeHtml(role.Id) + "'>" + escapeHtml(role.Name) + '</option>');
+					});
+
+					var html = ["<div class='libraryRoleRows'>"];
+					libraryRoleViewModel.libraries.forEach(function (library) {
+						var mapping = libraryRoleViewModel.mappings[library.ItemId] || {};
+						var selectedRoleId = mapping.RoleId || '';
+						var isDefaultAssign = !!mapping.UseDefaultAssign;
+
+						html.push("<div class='libraryRoleRow' data-library-id='" + escapeHtml(library.ItemId) + "'>");
+						html.push("<div class='libraryRoleName'>" + escapeHtml(library.Name) + '</div>');
+						html.push("<select is='emby-select' class='libraryRoleSelect'>");
+						roleOptions.forEach(function (option) {
+							if (selectedRoleId && option.indexOf("value='" + escapeHtml(selectedRoleId) + "'") > -1) {
+								html.push(option.replace('>', ' selected>'));
+							} else {
+								html.push(option);
+							}
+						});
+						html.push('</select>');
+						html.push("<label class='checkboxContainer'>");
+						html.push("<input type='checkbox' class='libraryDefaultAssign'" + (isDefaultAssign ? ' checked' : '') + ' />');
+						html.push('<span>Use default assign</span>');
+						html.push('</label>');
+						html.push('</div>');
+					});
+					html.push('</div>');
+
+					container.innerHTML = html.join('');
+				}
+
+				function renderAdminRoleSelect() {
+					var select = document.querySelector('#AdminRoleId');
+					var selectedRoleId = select.getAttribute('data-selected-role') || '';
+					var html = ["<option value=''>No admin role selected</option>"];
+
+					libraryRoleViewModel.roles.forEach(function (role) {
+						var selected = selectedRoleId && selectedRoleId === role.Id ? ' selected' : '';
+						html.push("<option value='" + escapeHtml(role.Id) + "'" + selected + '>' + escapeHtml(role.Name) + '</option>');
+					});
+
+					select.innerHTML = html.join('');
+				}
+
+				function readLibraryRoleMappingsFromUi() {
+					var rows = document.querySelectorAll('.libraryRoleRow');
+					var mappings = [];
+					rows.forEach(function (row) {
+						var roleId = row.querySelector('.libraryRoleSelect').value;
+						mappings.push({
+							LibraryId: row.getAttribute('data-library-id'),
+							RoleId: roleId,
+							UseDefaultAssign: row.querySelector('.libraryDefaultAssign').checked,
+						});
+					});
+
+					return mappings;
+				}
+
+				document.querySelector('#TemplateConfigPage').addEventListener('pageshow', function () {
+					Dashboard.showLoadingMsg();
+					ApiClient.getPluginConfiguration(TemplateConfig.pluginUniqueId).then(function (config) {
+						document.querySelector('#ClientId').value = config.ClientId;
+						document.querySelector('#ClientSecret').value = config.ClientSecret;
+						document.querySelector('#BotToken').value = config.BotToken;
+						document.querySelector('#ServerId').value = config.ServerId;
+						document.querySelector('#AdminRoleId').setAttribute('data-selected-role', config.AdminRoleId || '');
+
+						var existingMappings = (config.LibraryRoleMappings || []).reduce(function (acc, mapping) {
+							acc[mapping.LibraryId] = mapping;
+							return acc;
+						}, {});
+
+						ApiClient.getJSON(ApiClient.getUrl('DiscordAuth/ConfigurationData'))
+							.then(function (viewData) {
+								libraryRoleViewModel.libraries = viewData.Libraries || [];
+								libraryRoleViewModel.roles = viewData.Roles || [];
+								libraryRoleViewModel.mappings = existingMappings;
+								renderAdminRoleSelect();
+								renderLibraryRoleMappings();
+							})
+							.finally(function () {
+								Dashboard.hideLoadingMsg();
+							});
+					});
+				});
+
+				document.querySelector('#TemplateConfigForm').addEventListener('submit', function (e) {
+					Dashboard.showLoadingMsg();
+					ApiClient.getPluginConfiguration(TemplateConfig.pluginUniqueId).then(function (config) {
+						config.ClientId = document.querySelector('#ClientId').value;
+						config.ClientSecret = document.querySelector('#ClientSecret').value;
+						config.BotToken = document.querySelector('#BotToken').value;
+						config.ServerId = document.querySelector('#ServerId').value;
+						config.AdminRoleId = document.querySelector('#AdminRoleId').value;
+						config.LibraryRoleMappings = readLibraryRoleMappingsFromUi();
+						ApiClient.updatePluginConfiguration(TemplateConfig.pluginUniqueId, config).then(function (result) {
+							Dashboard.processPluginConfigurationUpdateResult(result);
+						});
+					});
+
+					e.preventDefault();
+					return false;
+				});
+			</script>
+		</div>
+	</body>
 </html>
