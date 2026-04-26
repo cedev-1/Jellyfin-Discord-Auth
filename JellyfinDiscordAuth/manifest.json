@@ -10,7 +10,7 @@
 				"checksum": "BCAC1F30C47B747147274BB27B72CD93",
 				"timestamp": "2026-04-26T17:39:57Z",
 				"targetAbi": "10.11.0.0",
-				"sourceUrl": "http://192.168.1.10:56080/jellyfin/discord/Release/1.1.0.0/JellyfinDiscordAuth.zip"
+				"sourceUrl": "https://trowbridge.tech/jellyfin/discord/1.1.0.0/JellyfinDiscordAuth.zip"
 			},
 			{
 				"changelog": "1.0.0.0: Initial Release....\n",
@@ -18,7 +18,7 @@
 				"checksum": "EBA94DDC559B69A761C6E0A183EAF6EC",
 				"timestamp": "2025-12-29T17:25:31Z",
 				"targetAbi": "10.11.0.0",
-				"sourceUrl": "https://trowbridge.tech/jellyfin/discord/JellyfinDiscordAuth.zip"
+				"sourceUrl": "https://trowbridge.tech/jellyfin/discord/1.0.0.0/JellyfinDiscordAuth.zip"
 			}
 		],
 		"name": "Discord Authentication",
