@@ -15,10 +15,10 @@
 			{
 				"changelog": "1.0.0.0: Initial Release....\n",
 				"version": "1.0.0.0",
-				"checksum": "DE6246B10250118A7199284F2074B7EC",
-				"timestamp": "2026-04-26T17:33:50Z",
+				"checksum": "EBA94DDC559B69A761C6E0A183EAF6EC",
+				"timestamp": "2025-12-29T17:25:31Z",
 				"targetAbi": "10.11.0.0",
-				"sourceUrl": "https://trowbridge.tech/jellyfin/discord/Release/1.0.0.0/JellyfinDiscordAuth.zip"
+				"sourceUrl": "https://trowbridge.tech/jellyfin/discord/JellyfinDiscordAuth.zip"
 			}
 		],
 		"name": "Discord Authentication",
