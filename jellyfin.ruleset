@@ -34,7 +34,7 @@
     <Rule Id="SA1633" Action="None" />
   </Rules>
 
-  <Rules AnalyzerId="Microsoft.CodeAnalysis.FxCopAnalyzers" RuleNamespace="Microsoft.Design">
+  <Rules AnalyzerId="Microsoft.CodeAnalysis.NetAnalyzers" RuleNamespace="Microsoft.Design">
     <!-- disable warning CA1031: Do not catch general exception types -->
     <Rule Id="CA1031" Action="Info" />
     <!-- disable warning CA1032: Implement standard exception constructors -->
